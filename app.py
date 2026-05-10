@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import yfinance as yf
+import plotly.express as ps
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -19,10 +21,20 @@ ticker = st.sidebar.text_input("Enter a stock or ETF ticker: VOO")
 
 time_period = st.sidebar.selectbox(
     "Select a time period",
-    ["1mo", "3mo", "6mo", "1y", "5y", "max"]
+    ["1mo", "3mo", "6mo", "1y", "5y", "max"],
+    index=3 # Default to 1 year
 )
 
+def get_stock_data(ticker_symbol, period): # Fetch stock data from Yahoo Finance
+    stock = yf.Ticker(ticker_symbol) # Create a Ticker object for the stock
+    data = stock.history(period=period) # Get historical data
+    return data
+
 analyze_button = st.sidebar.button("Analyze")
+
+if analyze_button:
+    data = get_stock_data(ticker, time_period)
+    
 
 # --- Main layout ---
 st.subheader(f"Market Intelligence for: {ticker.upper()}")
@@ -30,10 +42,14 @@ st.subheader(f"Market Intelligence for: {ticker.upper()}")
 # Top Metrics Row
 col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Current Price", "$---")
-col2.metric("Daily Change", "---%")
-col3.metric("Signal Score", "--/100")
-col4.metric("Sentiment", "Neutral")
+with col1:
+    st.metric("Current Price", "$---")
+with col2:
+    st.metric("Daily Change", "---%")
+with col3:
+    st.metric("Signal Score", "--/100")
+with col4:
+    st.metric("Sentiment", "Neutral")
 
 # Main Dashboard section
 left_col, right_col = st.columns([2, 1])
