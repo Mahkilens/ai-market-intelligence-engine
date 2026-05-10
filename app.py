@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
-import plotly.express as ps
+import plotly.express as px
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -34,33 +34,47 @@ analyze_button = st.sidebar.button("Analyze")
 
 if analyze_button:
     data = get_stock_data(ticker, time_period)
-    
 
-# --- Main layout ---
-st.subheader(f"Market Intelligence for: {ticker.upper()}")
+    if data.empty:
+        st.error("No data found for the given ticker and time period.")
+    else: 
+        st.subheader(f"Market Intelligence for: {ticker.upper()}")
 
-# Top Metrics Row
-col1, col2, col3, col4 = st.columns(4)
+        current_price = data["Close"].iloc[-1]
+        previous_price = data["Close"].iloc[-2]
+        daily_change = ((current_price - previous_price) / previous_price) * 100
 
-with col1:
-    st.metric("Current Price", "$---")
-with col2:
-    st.metric("Daily Change", "---%")
-with col3:
-    st.metric("Signal Score", "--/100")
-with col4:
-    st.metric("Sentiment", "Neutral")
+        col1, col2, col3, col4 = st.columns(4)
 
-# Main Dashboard section
-left_col, right_col = st.columns([2, 1])
+        col1.metric("Current Price", f"${current_price:.2f}")
+        col2.metric("Daily Change", f"{daily_change:.2f}%")
+        col3.metric("Signal Score", "---/100")
+        col4.metric("Sentiment", "Neutral")
 
-with left_col:
-    st.header("Price Chart")
-    st.info("Price chart will appear here")
+        left_col, right_col = st.columns([2, 1])
 
-with right_col:
-    st.header("AI Analysis")
-    st.info("AI analysis will appear here")
+        with left_col:
+            st.header("Price Movement")
+
+            chart_data = data.reset_index()
+
+            fig = px.line(
+                chart_data,
+                x="Date",
+                y="Close",
+                title=f"{ticker} Closing Price"
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+
+        with right_col:
+            st.header("AI Summary")
+            st.info("AI-generated explanation will go here later.")
+
+        st.header("Raw Market Data")
+        st.dataframe(data.tail(10))
+else:
+    st.info("Enter a ticker and click 'Get Intelligence'. Try VOO or QQQM.")
 
 st.header("Market Events")
 st.dataframe({
