@@ -62,13 +62,35 @@ if analyze_button:
         daily_returns = data["Close"].pct_change()
         volatility = daily_returns.std() * 100
 
+        # Moving averages
+        data["MA20"] = data["Close"].rolling(window=20).mean()
+        data["MA50"] = data["Close"].rolling(window=50).mean()
+
+        current_ma20 = data["MA20"].iloc[-1]
+        current_ma50 = data["MA50"].iloc[-1]
+
+        # Signal Score
+        signal_score = 0
+
+        if current_price > current_ma20:
+            signal_score += 25
+
+        if current_price > current_ma50:
+            signal_score += 25
+
+        if period_return > 0:
+            signal_score += 25
+
+        if daily_change > 0:
+            signal_score += 25
+
 
         # --- Display Metrics --- 
         col1, col2, col3, col4, col5 = st.columns(5)
 
         col1.metric("Current Price", f"${current_price:.2f}")
         col2.metric("Daily Change", f"{daily_change:.2f}%")
-        col3.metric("Period Return", f"{period_return:.2f}%")
+        col3.metric("Signal Score", f"{signal_score}/100")
         col4.metric("Period High", f"${period_high:.2f}")
         col5.metric("Volatility", f"{volatility:.2f}%")
 
@@ -97,7 +119,15 @@ if analyze_button:
         # --- Display AI Summary --- 
         with right_col:
             st.header("AI Summary")
-            st.info("AI-generated explanation will go here later.")
+
+            if current_price > current_ma20 and current_price > current_ma50:
+                st.success("Bullish trend detected! Price is above both the 20-day and 50-day moving averages.", icon="✅")
+
+            elif current_price < current_ma20 and current_price < current_ma50:
+                st.warning("Bearish trend detected. Price is below both the 20-day and 50-day moving averages.", icon="⚠️")
+
+            else:
+                st.info("Neutral or mixed trend detected. Price is between the moving averages.", icon="ℹ️")   
 
         # Displaying raw market data
         st.header("Raw Market Data")
