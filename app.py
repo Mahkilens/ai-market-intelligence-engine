@@ -17,21 +17,26 @@ st.write("Get real-time market intelligence for any stock or ETF")
 # --- Side Bar ---
 st.sidebar.header("Controls")
 
+# --- Ticker Input ---
 ticker = st.sidebar.text_input("Enter a stock or ETF ticker: VOO")
 
+# --- Time Period Selection ---
 time_period = st.sidebar.selectbox(
     "Select a time period",
     ["1mo", "3mo", "6mo", "1y", "5y", "max"],
     index=3 # Default to 1 year
 )
 
+# --- Data Fetching Function ---
 def get_stock_data(ticker_symbol, period): # Fetch stock data from Yahoo Finance
     stock = yf.Ticker(ticker_symbol) # Create a Ticker object for the stock
     data = stock.history(period=period) # Get historical data
     return data
 
+# --- Button ---
 analyze_button = st.sidebar.button("Analyze")
 
+# --- Main Logic --- 
 if analyze_button:
     data = get_stock_data(ticker, time_period)
 
@@ -40,16 +45,32 @@ if analyze_button:
     else: 
         st.subheader(f"Market Intelligence for: {ticker.upper()}")
 
+        # Calculate current price and daily change (from previous close)
         current_price = data["Close"].iloc[-1]
         previous_price = data["Close"].iloc[-2]
         daily_change = ((current_price - previous_price) / previous_price) * 100
 
-        col1, col2, col3, col4 = st.columns(4)
+        # Calculate period return (from start to end of period)
+        start_price = data["Close"].iloc[0]
+        period_return = ((current_price - start_price) / start_price) * 100
+
+        # Calculate period high and low (over the entire period)
+        period_high = data["Close"].max()
+        period_low = data["Close"].min()
+
+        # Calculate volatility (standard deviation of daily returns)
+        daily_returns = data["Close"].pct_change()
+        volatility = daily_returns.std() * 100
+
+
+        # --- Display Metrics --- 
+        col1, col2, col3, col4, col5 = st.columns(5)
 
         col1.metric("Current Price", f"${current_price:.2f}")
         col2.metric("Daily Change", f"{daily_change:.2f}%")
-        col3.metric("Signal Score", "---/100")
-        col4.metric("Sentiment", "Neutral")
+        col3.metric("Period Return", f"{period_return:.2f}%")
+        col4.metric("Period High", f"${period_high:.2f}")
+        col5.metric("Volatility", f"{volatility:.2f}%")
 
         left_col, right_col = st.columns([2, 1])
 
