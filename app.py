@@ -77,23 +77,32 @@ if analyze_button:
         with left_col:
             st.header("Price Movement")
 
+            # Displaying rolling/moving averages 
+            data["MA20"] = data["Close"].rolling(window=20).mean()
+            data["MA50"] = data["Close"].rolling(window=50).mean()
+
             chart_data = data.reset_index()
 
+            # Creating the line chart with Plotly
             fig = px.line(
                 chart_data,
                 x="Date",
-                y="Close",
-                title=f"{ticker} Closing Price"
+                y=["Close", "MA20", "MA50"],
+                title=f"{ticker} Price with Moving Averages"
             )
 
+            # Display the chart
             st.plotly_chart(fig, use_container_width=True)
 
+        # --- Display AI Summary --- 
         with right_col:
             st.header("AI Summary")
             st.info("AI-generated explanation will go here later.")
 
+        # Displaying raw market data
         st.header("Raw Market Data")
         st.dataframe(data.tail(10))
+
 else:
     st.info("Enter a ticker and click 'Get Intelligence'. Try VOO or QQQM.")
 
