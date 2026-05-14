@@ -70,19 +70,36 @@ if analyze_button:
         current_ma50 = data["MA50"].iloc[-1]
 
         # Signal Score
+        # Market Intelligence Summary v2
+        # This version focuses on providing a clear, actionable summary of the market data.
+
         signal_score = 0
+        positive_signals = []
+        negative_signals = []
 
         if current_price > current_ma20:
             signal_score += 25
+            positive_signals.append("Price is above the 20-day moving average.")
+        else:
+            negative_signals.append("Price is below the 20-day moving average.")
 
         if current_price > current_ma50:
             signal_score += 25
+            positive_signals.append("Price is above the 50-day moving average.")
+        else:
+            negative_signals.append("Price is below the 50-day moving average.")
 
         if period_return > 0:
             signal_score += 25
+            positive_signals.append("Period return is positive.")
+        else:
+            negative_signals.append("Period return is negative.")
 
         if daily_change > 0:
             signal_score += 25
+            positive_signals.append("Daily change is positive.")
+        else:
+            negative_signals.append("Daily change is negative.")
 
 
         # --- Display Metrics --- 
@@ -118,16 +135,20 @@ if analyze_button:
 
         # --- Display AI Summary --- 
         with right_col:
-            st.header("AI Summary")
 
-            if current_price > current_ma20 and current_price > current_ma50:
-                st.success("Bullish trend detected! Price is above both the 20-day and 50-day moving averages.", icon="✅")
+            # Signal Breakdown
+            st.subheader("Signal Breakdown")
+            st.write(f"Signal Score: {signal_score}/100")
 
-            elif current_price < current_ma20 and current_price < current_ma50:
-                st.warning("Bearish trend detected. Price is below both the 20-day and 50-day moving averages.", icon="⚠️")
+            # Positive Signals
+            st.write("Positive Signals")
+            for signal in positive_signals:
+                st.success(signal)
 
-            else:
-                st.info("Neutral or mixed trend detected. Price is between the moving averages.", icon="ℹ️")   
+            # Negative Signals
+            st.write("Negative Signals")
+            for signal in negative_signals:
+                st.warning(signal)
 
         # Displaying raw market data
         st.header("Raw Market Data")
@@ -136,9 +157,5 @@ if analyze_button:
 else:
     st.info("Enter a ticker and click 'Get Intelligence'. Try VOO or QQQM.")
 
-st.header("Market Events")
-st.dataframe({
-    "Event": ["Placeholder news event"],
-    "Importance": ["High"],
-    "Reason": ["This is where ranked market-moving events will appear."]
-})
+
+
