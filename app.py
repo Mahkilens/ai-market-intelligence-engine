@@ -2,6 +2,15 @@ import streamlit as st
 import pandas as pd
 import yfinance as yf
 import plotly.express as px
+from openai import OpenAI
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
+
+# Initialize OpenAI client
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -36,8 +45,72 @@ def get_stock_data(ticker_symbol, period): # Fetch stock data from Yahoo Finance
 # --- Button ---
 analyze_button = st.sidebar.button("Analyze")
 
-# --- Main Logic --- 
+# --- Session State for Analysis ---
+if "analysis_ready" not in st.session_state:
+    st.session_state.analysis_ready = False
+
 if analyze_button:
+    st.session_state.analysis_ready = True
+
+# AI Analysis Function
+def generate_ai_summary(market_context):
+    prompt = f"""
+    You are an AI financial analyst assistant.
+
+    Your job is to explain market data in plain English.
+    Do not give financial advice.
+    Do not tell the user to buy, sell, or hold.
+    Explain the trend, momentum, risks, and key signals.
+
+    Market context:
+    {market_context}
+
+    Write a concise analysis with:
+    1. Overall summary
+    2. Trend interpretation
+    3. Momentum/RSI interpretation
+    4. Risk note
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-5.5",
+        messages=[
+            {"role": "system", "content": "You are a financial analyst assistant."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    return response.choices[0].message.content
+
+def generate_trade_setup_analysis(market_context):
+    prompt = f"""
+    You are an AI trading assistant.
+    
+    Your job is to analyze market data and provide a trade setup recommendation.
+    
+    Market context:
+    {market_context}
+    
+    Write a concise trade setup with:
+    1. Entry price
+    2. Stop loss
+    3. Take profit
+    4. Rationale
+    """
+    
+    response = client.chat.completions.create(
+        model="gpt-5.5",
+        messages=[
+            {"role": "system", "content": "You are a trading assistant."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    
+    return response.choices[0].message.content
+
+
+# --- Main Logic --- 
+if st.session_state.analysis_ready or analyze_button:
     data = get_stock_data(ticker, time_period)
 
     if data.empty:
@@ -212,8 +285,25 @@ if analyze_button:
         st.header("Raw Market Data")
         st.dataframe(data.tail(10))
 
+        st.header("Market Summary")
+        market_context = f"""
+        Ticker: {ticker}\n
+        Current Price: ${current_price:.2f}\n
+        Daily Change: {daily_change:.2f}%\n
+        Signal Score: {signal_score}/100\n
+        RSI: {current_rsi:.2f}\n
+        Market Regime: {market_regime}\n
+        Positive Signals: {positive_signals}\n
+        Negative Signals: {negative_signals}
+        """
+        st.info(market_context)
+
+        if st.button("Generate AI Summary"):
+            ai_summary = generate_ai_summary(market_context)
+            st.subheader("AI Market Analyst Summary")
+            st.write(ai_summary)
+
 else:
     st.info("Enter a ticker and click 'Get Intelligence'. Try VOO or QQQM.")
-
 
 
