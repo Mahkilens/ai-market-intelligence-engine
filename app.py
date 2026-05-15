@@ -69,6 +69,20 @@ if analyze_button:
         current_ma20 = data["MA20"].iloc[-1]
         current_ma50 = data["MA50"].iloc[-1]
 
+        # RSI Calculations
+        delta = data["Close"].diff() # Calculate the difference between each price and the previous price
+
+        gain = delta.clip(lower=0) # All negative values become 0
+        loss = -delta.clip(upper=0) # All positive values become 0
+
+        average_gain = gain.rolling(window=14).mean() # Calculate the average gain over the last 14 days
+        average_loss = loss.rolling(window=14).mean() # Calculate the average loss over the last 14 days
+
+        rs = average_gain / average_loss
+        data["RSI"] = 100 - (100 / (1 + rs))
+
+        current_rsi = data["RSI"].iloc[-1]
+
         # Signal Score
         # Market Intelligence Summary v2
         # This version focuses on providing a clear, actionable summary of the market data.
@@ -101,15 +115,40 @@ if analyze_button:
         else:
             negative_signals.append("Daily change is negative.")
 
+        # Market Regime:
+        market_regime = ""
+        market_regime_explanation = ""
+        market_regime_type = ""
+
+        if current_rsi > 70:
+            market_regime = "Overbought Rally"
+            market_regime_explanation = "RSI is above 70, suggesting strong momentum but possible overextension."
+            market_regime_type = "warning"
+
+        elif signal_score >= 75 and current_rsi <= 70:
+            market_regime = "Strong Bullish Momentum"
+            market_regime_explanation = "The signal score is strong and RSI is not yet overbought."
+            market_regime_type = "success"
+
+        elif signal_score <= 25 and current_rsi < 40:
+            market_regime = "Bearish Weakness"
+            market_regime_explanation = "The signal score is weak and RSI suggests poor momentum."
+            market_regime_type = "warning"
+
+        else:
+            market_regime = "Neutral Consolidation"
+            market_regime_explanation = "Signals are mixed, suggesting no clear directional edge."
+            market_regime_type = "info"
 
         # --- Display Metrics --- 
-        col1, col2, col3, col4, col5 = st.columns(5)
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
 
         col1.metric("Current Price", f"${current_price:.2f}")
         col2.metric("Daily Change", f"{daily_change:.2f}%")
         col3.metric("Signal Score", f"{signal_score}/100")
         col4.metric("Period High", f"${period_high:.2f}")
         col5.metric("Volatility", f"{volatility:.2f}%")
+        col6.metric("RSI", f"{current_rsi:.2f}")
 
         left_col, right_col = st.columns([2, 1])
 
@@ -137,18 +176,37 @@ if analyze_button:
         with right_col:
 
             # Signal Breakdown
-            st.subheader("Signal Breakdown")
-            st.write(f"Signal Score: {signal_score}/100")
+            st.subheader("Signal Breakdown") 
+            st.write(f"Signal Score: {signal_score}/100") # this is the overall score of the stock
 
             # Positive Signals
-            st.write("Positive Signals")
+            st.subheader("Positive Signals") # the stock is performing well
             for signal in positive_signals:
                 st.success(signal)
 
             # Negative Signals
-            st.write("Negative Signals")
+            st.subheader("Negative Signals") # the stock is not performing well
             for signal in negative_signals:
                 st.warning(signal)
+            
+            # RSI Interpretation
+            st.subheader("RSI Interpretation")
+            if current_rsi > 70:
+                st.warning("RSI is above 70 > Market may be Overbought")
+            elif current_rsi < 30:
+                st.success("RSI is below 30 > Market may be Oversold")
+            else:
+                st.info("RSI is between 30 & 70 > Market is in neutral range")
+            
+            # Market Regime
+            st.subheader("Market Regime")
+
+            if market_regime_type == "success":
+                st.success(market_regime)
+            elif market_regime_type == "warning":
+                st.warning(market_regime)
+            else:
+                st.info(market_regime)
 
         # Displaying raw market data
         st.header("Raw Market Data")
