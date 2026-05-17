@@ -21,7 +21,7 @@ st.set_page_config(
 
 # --- Header ---
 st.title("AI Market Intelligence Engine")
-st.write("Get real-time market intelligence for any stock or ETF")
+st.write("Get real-time market intelligence for any stock/ETF or forex pair")
 
 # --- Side Bar ---
 st.sidebar.header("Controls")
@@ -37,17 +37,30 @@ asset_type = st.sidebar.selectbox(
 ticker = st.sidebar.text_input("Enter a stock, ETF, or forex pair:", value="VOO")
 st.sidebar.caption("Examples: VOO, QQQM, AAPL, NVDA, EURUSD=X, GBPUSD=X, USDJPY=X")
 
-# --- Time Period Selection ---
-time_period = st.sidebar.selectbox(
-    "Select a time period",
-    ["1mo", "3mo", "6mo", "1y", "5y", "max"],
-    index=3 # Default to 1 year
+# --- Historical Range Selection ---
+period = st.sidebar.selectbox(
+    "Select historical range",
+    ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y"],
+    index=5
+)
+
+# Candle Stick Interval
+time_interval = st.sidebar.selectbox(
+    "Select timeframe",
+    ["1m", "2m", "5m", "15m", "30m", "1h", "1d", "5d", "1wk", "1mo", "3mo"],
+    index=6 # Default to 1 day
 )
 
 # --- Data Fetching Function ---
-def get_stock_data(ticker_symbol, period): # Fetch stock data from Yahoo Finance
-    stock = yf.Ticker(ticker_symbol) # Create a Ticker object for the stock
-    data = stock.history(period=period) # Get historical data
+def get_stock_data(ticker_symbol, period, interval):
+
+    stock = yf.Ticker(ticker_symbol)
+
+    data = stock.history(
+        period=period,
+        interval=interval
+    )
+
     return data
 
 # normalize forex inputs
@@ -70,44 +83,100 @@ if "analysis_ready" not in st.session_state:
 if analyze_button:
     st.session_state.analysis_ready = True
 
-# AI Analysis Function
-def generate_ai_summary(market_context): # Generate an AI summary of the market data
+# AI Market Intelligence Summary
+def generate_ai_summary(market_context):
+
     prompt = f"""
-You are MahkiVision, an AI market intelligence assistant.
+You are MahkiVision AI, an institutional-grade market intelligence engine.
 
-Your job is to analyze structured market data and explain what it may suggest.
-You are NOT a financial advisor.
-Do NOT tell the user to buy, sell, hold, or place trades.
-Do NOT promise outcomes.
-Use cautious, probability-based language.
+Your role is to interpret structured financial market data and explain what current conditions MAY suggest.
 
-Market context:
+You are NOT:
+- a financial advisor
+- a portfolio manager
+- a signal service
+- a guarantee engine
+
+You MUST:
+- use probability-based reasoning
+- speak cautiously and professionally
+- explain uncertainty clearly
+- avoid hype or emotional language
+- avoid guaranteeing outcomes
+- avoid direct trade instructions
+
+You specialize in:
+- trend analysis
+- momentum analysis
+- RSI interpretation
+- volatility assessment
+- market regime analysis
+- risk evaluation
+- setup quality scoring
+
+Market Context:
 {market_context}
 
-Return the analysis in this exact format:
+Return the analysis using EXACTLY this structure:
 
-### 1. Market Read
-Explain the overall condition in 2-3 sentences.
+# Market Read
+Explain the broader market condition in 2-4 professional sentences.
 
-### 2. Trend & Momentum
-Explain what the moving averages, signal score, and RSI suggest.
+# Trend & Momentum Analysis
+Explain:
+- moving average behavior
+- RSI condition
+- momentum quality
+- signal score interpretation
+- whether trend conditions appear healthy or weakening
 
-### 3. Risk Factors
-List the main risks or conflicting signals.
+# Risk Factors
+Explain:
+- conflicting signals
+- volatility concerns
+- momentum exhaustion risk
+- trend failure risks
+- any signs of weakening structure
 
-### 4. Trader Watchlist
-List 2-4 things a trader should monitor before making a decision.
+# Trader Watchlist
+Provide 3-5 things a trader should monitor next.
 
-### 5. Confidence Level
-Give a confidence score from 0-100 and explain why.
+Examples:
+- RSI behavior
+- moving average holds
+- volatility expansion
+- trend continuation
+- price rejection
+- support/resistance reactions
+
+# Confidence Assessment
+Provide:
+- Confidence Score: X/100
+- A 2-3 sentence explanation justifying the score.
+
+Your tone should sound like:
+- an institutional analyst
+- a hedge-fund research assistant
+- a professional market intelligence system
 """
- 
-    response = client.chat.completions.create( # Use GPT-5.5 for market analysis
+
+    response = client.chat.completions.create(
         model="gpt-5.5",
         messages=[
             {
                 "role": "system",
-                "content": "You are MahkiVision, a cautious AI market intelligence assistant for educational analysis only."
+                "content": """
+You are MahkiVision AI.
+
+A professional market intelligence and probabilistic analysis system designed for educational and research purposes.
+
+You analyze:
+- stocks
+- ETFs
+- forex pairs
+
+You provide structured market interpretation without giving financial advice.
+"""
             },
             {
                 "role": "user",
@@ -116,47 +185,108 @@ Give a confidence score from 0-100 and explain why.
         ]
     )
 
-    return response.choices[0].message.content # Return the AI-generated summary
+    return response.choices[0].message.content
 
-def generate_trade_setup_analysis(market_context): # Generate a trade setup analysis using AI
+# AI Trade Setup Intelligence
+def generate_trade_setup_analysis(market_context):
+
     prompt = f"""
-You are MahkiVision, an AI trading intelligence assistant.
+You are MahkiVision AI, an institutional-grade trading intelligence engine.
 
-Analyze the market context for educational decision-support only.
-Do NOT tell the user to buy, sell, hold, or place a trade.
-Do NOT guarantee outcomes.
+Your purpose is to evaluate market structure and describe what type of setup MAY be forming.
 
-Market context:
+You are NOT:
+- a financial advisor
+- a signal seller
+- a trade execution engine
+
+You MUST:
+- avoid direct buy/sell instructions
+- avoid guaranteeing outcomes
+- explain uncertainty honestly
+- use cautious market language
+- think like a professional market analyst
+
+Market Context:
 {market_context}
 
-Return this exact format:
+Return the response using EXACTLY this structure:
 
-### 1. Setup Type
-Classify the setup as one of:
+# Setup Classification
+Classify the current structure as ONE of the following:
 - Bullish Continuation Watch
 - Pullback Risk
 - Neutral / No Clear Edge
 - Bearish Weakness Watch
+- High Volatility / Unstable Conditions
 
-### 2. Setup Strength
-Give a score from 0-100 and explain why.
+Then explain WHY.
 
-### 3. Confirmation Signals
-List signals a trader should monitor before acting.
+# Setup Strength Assessment
+Provide:
+- Setup Score: X/100
 
-### 4. Risk / Invalidation
-Explain what would weaken or invalidate the setup.
+Then explain:
+- trend quality
+- momentum quality
+- signal alignment
+- volatility conditions
+- whether conditions appear strengthening or weakening
 
-### 5. Human Review Checklist
-List 3-5 things the user should review manually.
+# Confirmation Signals
+List 3-6 things traders should monitor for confirmation.
+
+Examples:
+- RSI continuation
+- moving average support
+- volatility contraction
+- breakout continuation
+- price rejection
+- trend acceleration
+- volume expansion
+
+# Risk & Invalidation
+Explain:
+- what could weaken the setup
+- what could invalidate trend structure
+- warning signs traders should monitor
+- momentum failure conditions
+
+# Human Review Checklist
+Provide 3-5 manual review checks.
+
+Examples:
+- higher timeframe trend
+- macroeconomic events
+- news catalysts
+- major resistance zones
+- support integrity
+- market correlation behavior
+
+Your tone should sound:
+- professional
+- analytical
+- institutional
+- probability-focused
 """
 
-    response = client.chat.completions.create( # Use GPT-5.5 for trade setup analysis
-        model="gpt-5.5", # Use GPT-5.5 for trade setup analysis
+    response = client.chat.completions.create(
+        model="gpt-5.5",
         messages=[
             {
                 "role": "system",
-                "content": "You are MahkiVision, a cautious AI trading intelligence assistant for educational analysis only."
+                "content": """
+You are MahkiVision AI.
+
+An institutional-grade market intelligence system designed to evaluate:
+- stocks
+- ETFs
+- forex markets
+
+You provide structured probabilistic analysis for educational and research purposes only.
+
+You never provide financial advice or guaranteed outcomes.
+"""
             },
             {
                 "role": "user",
@@ -165,12 +295,87 @@ List 3-5 things the user should review manually.
         ]
     )
 
-    return response.choices[0].message.content # Return the AI-generated trade setup analysis
+    return response.choices[0].message.content
+
+# --- Normalize ticker symbols based on asset type ---
+def normalize_ticker(ticker, asset_type):
+
+    ticker = ticker.upper().strip()
+
+    # Forex handling
+    if asset_type == "Forex":
+
+        # If user enters EURUSD
+        if len(ticker) == 6 and "-" not in ticker:
+            return f"{ticker}=X"
+
+        # If user enters EUR/USD
+        if "/" in ticker:
+            clean_pair = ticker.replace("/", "")
+            return f"{clean_pair}=X"
+
+        # If user already entered EURUSD=X
+        if "=X" in ticker:
+            return ticker
+
+    # Default stock/ETF behavior
+    return ticker
+
+# --- Validate ticker input based on asset type ---
+def validate_ticker(ticker, asset_type):
+
+    ticker = ticker.upper().strip()
+
+    # Forex validation
+    if asset_type == "Forex":
+
+        # Remove formatting
+        clean_ticker = ticker.replace("/", "").replace("=X", "")
+
+        # Forex pairs should be 6 letters
+        if len(clean_ticker) != 6:
+            return False
+
+        # Must contain only letters
+        if not clean_ticker.isalpha():
+            return False
+
+        return True
+
+    # Stock/ETF validation
+    else:
+
+        # Stocks usually shorter
+        if len(ticker) > 5:
+            return False
+
+        # Stocks should not contain slash
+        if "/" in ticker:
+            return False
+
+        # Stocks should not contain =X
+        if "=X" in ticker:
+            return False
+
+        return True
+
+# Validate ticker input
+if not validate_ticker(ticker, asset_type):
+
+    st.error(
+        f"Invalid ticker format for {asset_type}."
+    )
+
+    st.stop()
 
 # --- Main Logic --- 
 if st.session_state.analysis_ready or analyze_button:
     normalized_ticker = normalize_ticker(ticker, asset_type)
-    data = get_stock_data(normalized_ticker, time_period)
+    data = get_stock_data(
+        normalized_ticker,
+        period,
+        time_interval
+    )
 
     if "ai_summary" not in st.session_state:
         st.session_state.ai_summary = ""
@@ -181,8 +386,8 @@ if st.session_state.analysis_ready or analyze_button:
     if data.empty:
         st.error("No data found for the given ticker and time period.")
     else: 
-        st.subheader(f"Market Intelligence for: {ticker.upper()}")
-        st.subheader(f"Normalized Ticker: {normalized_ticker}")
+        st.subheader(f"Market Intelligence for: {normalized_ticker}")
+        st.caption(f"Symbol used by data provider: {normalized_ticker}")
 
         # Calculate current price and daily change (from previous close)
         current_price = data["Close"].iloc[-1]
@@ -407,6 +612,8 @@ if st.session_state.analysis_ready or analyze_button:
         st.header("Market Summary")
         market_context = f"""
         Ticker: {ticker}\n
+        Asset Type: {asset_type}\n
+        Symbol Used: {normalized_ticker}\n
         Current Price: ${current_price:.2f}\n
         Daily Change: {daily_change:.2f}%\n
         Signal Score: {signal_score}/100\n
