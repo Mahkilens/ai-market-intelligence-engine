@@ -26,8 +26,16 @@ st.write("Get real-time market intelligence for any stock or ETF")
 # --- Side Bar ---
 st.sidebar.header("Controls")
 
+# Asset Type
+asset_type = st.sidebar.selectbox(
+    "Select an asset type",
+    ["Stock / ETF", "Forex"],
+    index=0 # Default to Stock / ETF
+)
+
 # --- Ticker Input ---
-ticker = st.sidebar.text_input("Enter a stock or ETF ticker: VOO")
+ticker = st.sidebar.text_input("Enter a stock, ETF, or forex pair:", value="VOO")
+st.sidebar.caption("Examples: VOO, QQQM, AAPL, NVDA, EURUSD=X, GBPUSD=X, USDJPY=X")
 
 # --- Time Period Selection ---
 time_period = st.sidebar.selectbox(
@@ -42,6 +50,16 @@ def get_stock_data(ticker_symbol, period): # Fetch stock data from Yahoo Finance
     data = stock.history(period=period) # Get historical data
     return data
 
+# normalize forex inputs
+def normalize_inputs(user_input, asset_type):
+    symbol = user_input.upper().replace("/", "").replace(" ", "")
+    
+    if asset_type == "Forex":
+        if not symbol.endswith("=X"):
+            symbol = symbol + "=X"
+
+    return symbol
+
 # --- Button ---
 analyze_button = st.sidebar.button("Analyze")
 
@@ -53,70 +71,118 @@ if analyze_button:
     st.session_state.analysis_ready = True
 
 # AI Analysis Function
-def generate_ai_summary(market_context):
+def generate_ai_summary(market_context): # Generate an AI summary of the market data
     prompt = f"""
-    You are an AI financial analyst assistant.
+You are MahkiVision, an AI market intelligence assistant.
 
-    Your job is to explain market data in plain English.
-    Do not give financial advice.
-    Do not tell the user to buy, sell, or hold.
-    Explain the trend, momentum, risks, and key signals.
+Your job is to analyze structured market data and explain what it may suggest.
+You are NOT a financial advisor.
+Do NOT tell the user to buy, sell, hold, or place trades.
+Do NOT promise outcomes.
+Use cautious, probability-based language.
 
-    Market context:
-    {market_context}
+Market context:
+{market_context}
 
-    Write a concise analysis with:
-    1. Overall summary
-    2. Trend interpretation
-    3. Momentum/RSI interpretation
-    4. Risk note
-    """
+Return the analysis in this exact format:
 
-    response = client.chat.completions.create(
+### 1. Market Read
+Explain the overall condition in 2-3 sentences.
+
+### 2. Trend & Momentum
+Explain what the moving averages, signal score, and RSI suggest.
+
+### 3. Risk Factors
+List the main risks or conflicting signals.
+
+### 4. Trader Watchlist
+List 2-4 things a trader should monitor before making a decision.
+
+### 5. Confidence Level
+Give a confidence score from 0-100 and explain why.
+"""
+ 
+    response = client.chat.completions.create( # Use GPT-5.5 for market analysis
         model="gpt-5.5",
         messages=[
-            {"role": "system", "content": "You are a financial analyst assistant."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are MahkiVision, a cautious AI market intelligence assistant for educational analysis only."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
         ]
     )
 
-    return response.choices[0].message.content
+    return response.choices[0].message.content # Return the AI-generated summary
 
-def generate_trade_setup_analysis(market_context):
+def generate_trade_setup_analysis(market_context): # Generate a trade setup analysis using AI
     prompt = f"""
-    You are an AI trading assistant.
-    
-    Your job is to analyze market data and provide a trade setup recommendation.
-    
-    Market context:
-    {market_context}
-    
-    Write a concise trade setup with:
-    1. Entry price
-    2. Stop loss
-    3. Take profit
-    4. Rationale
-    """
-    
-    response = client.chat.completions.create(
-        model="gpt-5.5",
+You are MahkiVision, an AI trading intelligence assistant.
+
+Analyze the market context for educational decision-support only.
+Do NOT tell the user to buy, sell, hold, or place a trade.
+Do NOT guarantee outcomes.
+
+Market context:
+{market_context}
+
+Return this exact format:
+
+### 1. Setup Type
+Classify the setup as one of:
+- Bullish Continuation Watch
+- Pullback Risk
+- Neutral / No Clear Edge
+- Bearish Weakness Watch
+
+### 2. Setup Strength
+Give a score from 0-100 and explain why.
+
+### 3. Confirmation Signals
+List signals a trader should monitor before acting.
+
+### 4. Risk / Invalidation
+Explain what would weaken or invalidate the setup.
+
+### 5. Human Review Checklist
+List 3-5 things the user should review manually.
+"""
+
+    response = client.chat.completions.create( # Use GPT-5.5 for trade setup analysis
+        model="gpt-5.5", # Use GPT-5.5 for trade setup analysis
         messages=[
-            {"role": "system", "content": "You are a trading assistant."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are MahkiVision, a cautious AI trading intelligence assistant for educational analysis only."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
         ]
     )
-    
-    return response.choices[0].message.content
 
+    return response.choices[0].message.content # Return the AI-generated trade setup analysis
 
 # --- Main Logic --- 
 if st.session_state.analysis_ready or analyze_button:
-    data = get_stock_data(ticker, time_period)
+    normalized_ticker = normalize_ticker(ticker, asset_type)
+    data = get_stock_data(normalized_ticker, time_period)
+
+    if "ai_summary" not in st.session_state:
+        st.session_state.ai_summary = ""
+
+    if "trade_setup" not in st.session_state:
+        st.session_state.trade_setup = ""
 
     if data.empty:
         st.error("No data found for the given ticker and time period.")
     else: 
         st.subheader(f"Market Intelligence for: {ticker.upper()}")
+        st.subheader(f"Normalized Ticker: {normalized_ticker}")
 
         # Calculate current price and daily change (from previous close)
         current_price = data["Close"].iloc[-1]
@@ -213,6 +279,42 @@ if st.session_state.analysis_ready or analyze_button:
             market_regime_explanation = "Signals are mixed, suggesting no clear directional edge."
             market_regime_type = "info"
 
+        # Trade Setup Intelligence
+        setup_type = "" # "Long", "Short", "Neutral"
+        setup_score = 0 # 0-100
+        risk_level = "" # "Low", "Medium", "High"
+        confirmation_signals = [] # List of strings describing confirmation signals
+        invalidation_notes = [] # List of strings describing invalidation signals
+
+        # Bullish Setup
+        if signal_score >= 75 and current_rsi < 70:
+            setup_type = "Bullish Continuation Watch"
+            setup_score = signal_score
+            risk_level = "Medium"
+            confirmation_signals.append("Strong signal score suggests multiple bullish conditions are active.")
+            confirmation_signals.append("RSI is below overbought territory, suggesting momentum may not be stretched yet.")
+            invalidation_notes.append("A move below the 20-day moving average may weaken the bullish setup.")
+            invalidation_notes.append("A sharp rise in volatility may increase downside risk.")
+        elif signal_score >= 75 and current_rsi >= 70:
+            setup_type = "Bullish but Overextended" 
+            setup_score = signal_score - 10 # Reduce score to reflect higher risk
+            risk_level = "High" # Higher risk due to overextension
+            confirmation_signals.append("Signal score is strong, showing positive trend structure.")
+            invalidation_notes.append("RSI above 70 suggests the move may be overextended.")
+            invalidation_notes.append("Short-term pullback risk is elevated.")
+        elif signal_score <= 25:
+            setup_type = "Bearish Weakness Watch" 
+            setup_score = signal_score
+            risk_level = "High"
+            confirmation_signals.append("Low signal score suggests weak technical conditions.")
+            invalidation_notes.append("A move back above key moving averages may invalidate the bearish view.")
+        else:
+            setup_type = "Neutral / No Clear Edge"
+            setup_score = signal_score
+            risk_level = "Medium"
+            confirmation_signals.append("Signals are mixed, so there is no clear directional setup.")
+            invalidation_notes.append("Wait for clearer confirmation from price, trend, RSI, or volume.")
+        
         # --- Display Metrics --- 
         col1, col2, col3, col4, col5, col6 = st.columns(6)
 
@@ -281,6 +383,23 @@ if st.session_state.analysis_ready or analyze_button:
             else:
                 st.info(market_regime)
 
+        st.header("Trade Setup Intelligence")
+
+        col_a, col_b, col_c = st.columns(3)
+
+        col_a.metric("Setup Type", setup_type)
+        col_b.metric("Setup Score", f"{setup_score}/100")
+        col_c.metric("Risk Level", risk_level)
+
+        st.write("Confirmation Signals")
+        for signal in confirmation_signals:
+            st.success(signal)
+
+        st.write("Invalidation Notes")
+        for note in invalidation_notes:
+            st.warning(note)
+
+
         # Displaying raw market data
         st.header("Raw Market Data")
         st.dataframe(data.tail(10))
@@ -294,14 +413,35 @@ if st.session_state.analysis_ready or analyze_button:
         RSI: {current_rsi:.2f}\n
         Market Regime: {market_regime}\n
         Positive Signals: {positive_signals}\n
-        Negative Signals: {negative_signals}
+        Negative Signals: {negative_signals}\n
+        Setup Type: {setup_type}\n
+        Setup Score: {setup_score}/100\n
+        Risk Level: {risk_level}\n
+        Confirmation Signals: {confirmation_signals}\n
+        Invalidation Notes: {invalidation_notes}
         """
         st.info(market_context)
 
         if st.button("Generate AI Summary"):
-            ai_summary = generate_ai_summary(market_context)
+            with st.spinner("Generating AI market analysis..."):
+                st.session_state.ai_summary = generate_ai_summary(market_context)
+
+        if st.session_state.ai_summary:
             st.subheader("AI Market Analyst Summary")
-            st.write(ai_summary)
+            st.write(st.session_state.ai_summary)
+
+        if st.button("Generate Trade Setup Analysis"):
+            with st.spinner("Analyzing trade setup..."):
+                st.session_state.trade_setup = generate_trade_setup_analysis(market_context)
+
+        if st.session_state.trade_setup:
+            st.subheader("AI Trade Setup Analysis")
+            st.write(st.session_state.trade_setup)
+
+        if st.button("Clear AI Outputs"):
+            st.session_state.ai_summary = ""
+            st.session_state.trade_setup = ""
+            st.rerun()
 
 else:
     st.info("Enter a ticker and click 'Get Intelligence'. Try VOO or QQQM.")
